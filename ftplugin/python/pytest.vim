@@ -552,18 +552,21 @@ endfunction!
 
 
 function! s:RunPyTest(path, ...)
+    let parametrized = 0
+    let extra_flags = ''
     if (a:0 > 0)
       let parametrized = a:1
-    else
-      let parametrized = 0
+      if len(a:2)
+        let extra_flags = a:2
+      endif
     endif
 
     let g:pytest_last_session = ""
 
     if (len(parametrized) && parametrized != "0")
-        let cmd = "py.test -k " . parametrized . " --tb=short " . a:path
+        let cmd = "py.test -k " . parametrized . " " . extra_flags . " --tb=short " . a:path
     else
-        let cmd = "py.test --tb=short " . '"' . a:path . '"'
+        let cmd = "py.test " . extra_flags . " --tb=short " . '"' . a:path . '"'
     endif
 
     " NeoVim support
@@ -853,6 +856,7 @@ endfunction
 
 
 function! s:ThisMethod(verbose, ...)
+    let extra_flags = ''
     let save_cursor = getpos('.')
     call s:ClearAll()
     let m_name  = s:NameOfCurrentMethod()
@@ -893,10 +897,15 @@ function! s:ThisMethod(verbose, ...)
         call s:Pdb(path, a:1)
         return
     endif
+
+    if len(a:3)
+        let extra_flags = join(a:3, ' ')
+    endif
+
     if (a:verbose == 1)
         call s:RunInSplitWindow(path)
     else
-       call s:RunPyTest(path, parametrized_flag)
+       call s:RunPyTest(path, parametrized_flag, extra_flags)
     endif
 endfunction
 
@@ -929,6 +938,7 @@ endfunction
 
 
 function! s:ThisFunction(verbose, ...)
+    let extra_flags = ''
     let save_cursor = getpos('.')
     call s:ClearAll()
     let c_name      = s:NameOfCurrentFunction()
@@ -958,15 +968,20 @@ function! s:ThisFunction(verbose, ...)
         return
     endif
 
+    if len(a:3)
+        let extra_flags = join(a:3, ' ')
+    endif
+
     if (a:verbose == 1)
         call s:RunInSplitWindow(path)
     else
-        call s:RunPyTest(path, c_name)
+        call s:RunPyTest(path, c_name, extra_flags)
     endif
 endfunction
 
 
 function! s:ThisClass(verbose, ...)
+    let extra_flags = ''
     let save_cursor = getpos('.')
     call s:ClearAll()
     let c_name      = s:NameOfCurrentClass()
@@ -990,15 +1005,20 @@ function! s:ThisClass(verbose, ...)
         return
     endif
 
+    if len(a:3)
+        let extra_flags = join(a:3, ' ')
+    endif
+
     if (a:verbose == 1)
-        call s:RunInSplitWindow(path)
+        call s:RunInSplitWindow(path, extra_flags)
     else
-        call s:RunPyTest(path)
+        call s:RunPyTest(path, 0, extra_flags)
     endif
 endfunction
 
 
 function! s:ThisFile(verbose, ...)
+    let extra_flags = ''
     call s:ClearAll()
     let message = "py.test ==> Running tests for entire file"
     call s:Echo(message, 1)
@@ -1013,10 +1033,14 @@ function! s:ThisFile(verbose, ...)
         return
     endif
 
+    if len(a:3)
+        let extra_flags = join(a:3, ' ')
+    endif
+
     if (a:verbose == 1)
         call s:RunInSplitWindow(abspath)
     else
-        call s:RunPyTest(abspath)
+        call s:RunPyTest(abspath, 0, extra_flags)
     endif
 endfunction
 
@@ -1106,6 +1130,8 @@ function! s:Proxy(action, ...)
     let pdb     = 'False'
     let looponfail = 0
     let delgado = []
+    let extra_flags = []
+    let has_extra_flags = 0
 
     if (a:0 > 0)
         if (a:1 == 'verbose')
@@ -1119,42 +1145,48 @@ function! s:Proxy(action, ...)
             let looponfail = 1
         elseif (a:1 == 'delgado')
             let delgado = a:000
+        else
+          let extra_flags = a:000[0:]
+          let has_extra_flags = 1
+        endif
+        if !has_extra_flags
+            let extra_flags = a:000[1:]
         endif
     endif
     if (a:action == "class")
         if looponfail == 1
             call s:LoopOnFail(a:action)
-            call s:ThisClass(verbose, pdb, delgado)
+            call s:ThisClass(verbose, pdb, delgado, extra_flags)
         else
-            call s:ThisClass(verbose, pdb, delgado)
+            call s:ThisClass(verbose, pdb, delgado, extra_flags)
         endif
     elseif (a:action == "method")
         if looponfail == 1
             call s:LoopOnFail(a:action)
-            call s:ThisMethod(verbose, pdb, delgado)
+            call s:ThisMethod(verbose, pdb, delgado, extra_flags)
         else
-            call s:ThisMethod(verbose, pdb, delgado)
+            call s:ThisMethod(verbose, pdb, delgado, extra_flags)
         endif
     elseif (a:action == "function")
         if looponfail == 1
             call s:LoopOnFail(a:action)
-            call s:ThisFunction(verbose, pdb, delgado)
+            call s:ThisFunction(verbose, pdb, delgado, extra_flags)
         else
-            call s:ThisFunction(verbose, pdb, delgado)
+            call s:ThisFunction(verbose, pdb, delgado, extra_flags)
         endif
     elseif (a:action == "file")
         if looponfail == 1
             call s:LoopOnFail(a:action)
-            call s:ThisFile(verbose, pdb, delgado)
+            call s:ThisFile(verbose, pdb, delgado, extra_flags)
         else
-            call s:ThisFile(verbose, pdb, delgado)
+            call s:ThisFile(verbose, pdb, delgado, extra_flags)
         endif
     elseif (a:action == "project" )
         if looponfail ==1
             call s:LoopOnFail(a:action)
-            call s:ThisProject(verbose, pdb, delgado)
+            call s:ThisProject(verbose, pdb, delgado, extra_flags)
         else
-            call s:ThisProject(verbose, pdb,delgado)
+            call s:ThisProject(verbose, pdb,delgado, extra_flags)
         endif
     elseif (a:action == "projecttestwd")
         let projecttests = s:ProjectPath()
