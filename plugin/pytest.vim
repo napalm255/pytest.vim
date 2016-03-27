@@ -343,7 +343,7 @@ function! s:ProjectPath()
     elseif(len(projecttestfile) != 0)
         let path = fnamemodify(projecttestfile, ':p')
     else
-        let path = ''
+        let path = expand('%:p:h')
     endif
 
     return path
